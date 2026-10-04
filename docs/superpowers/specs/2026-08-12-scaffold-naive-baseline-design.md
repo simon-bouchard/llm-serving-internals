@@ -38,7 +38,7 @@ Out of scope, deferred to their own future design/implementation passes:
 Three machines, Claude has direct access only to the first:
 - **WSL2 laptop** (this session) — CPU-only. Dev environment; runs the scaffold for
   correctness smoke-testing (small input/output lengths), not for real benchmark numbers.
-- **RTX 1060 desktop** (Pascal, compute 6.1, 3GB VRAM, no vLLM support) — where stages 1–4
+- **GTX 1060 desktop** (Pascal, compute 6.1, 3GB VRAM, no vLLM support) — where stages 1–4
   actually get benchmarked. No remote access; scripts are written here and run there
   manually by the user.
 - **Kaggle T4** (Turing, compute 7.5, vLLM-capable) — where stage 5 (vLLM) runs. No remote

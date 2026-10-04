@@ -1149,7 +1149,7 @@ _Fill in after seeing the results._
 _Fill in after seeing the results._
 
 ## Hardware
-- GPU: RTX 1060 3GB (Pascal, compute 6.1)
+- GPU: GTX 1060 3GB (Pascal, compute 6.1)
 - CPU/RAM: _fill in_
 ```
 

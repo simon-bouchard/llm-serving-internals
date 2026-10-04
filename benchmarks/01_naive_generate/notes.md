@@ -83,7 +83,7 @@ All three predictions from the Hypothesis section hold, with one caveat worth fl
   the bandwidth ceiling by keeping the GPU fed with more work per step.
 
 ## Hardware
-- GPU: RTX 1060 3GB (Pascal, compute 6.1)
+- GPU: GTX 1060 3GB (Pascal, compute 6.1)
 - CPU: Intel Core i7-6700 (8 threads) @ 4.00 GHz
 - RAM: 15.54 GiB, DDR4 @ 2133 MT/s
 - Driver: NVIDIA 535.309.01, CUDA 12.2
