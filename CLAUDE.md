@@ -63,19 +63,24 @@ llm-serving-internals/
 │   └── llm_serving/
 │       ├── model.py         # load_model_and_tokenizer(): device/dtype selection, pad-token fixup
 │       ├── workload.py      # synthetic fixed-length random-token prompt generation
-│       ├── metrics.py       # shared benchmarking "utils": RequestMetrics, StageSummary, percentiles, CSV/JSON/console output
+│       ├── metrics.py       # shared benchmarking "utils": RequestMetrics, StageSummary, PositionITL, percentiles, CSV/JSON/console output
+│       ├── cli.py           # benchmark driver: args, warmup, timed requests, output writers
 │       └── stages/
 │           ├── base.py      # Stage protocol: generate_one(model, tok, input_ids, output_len) -> RequestMetrics
-│           └── naive.py     # stage 1, registered under name "naive" (kv_cache/static_batch/continuous_batch land later)
+│           ├── naive.py     # stage 1 "naive": greedy_generate() (pure greedy generate(), repetition penalty off)
+│           └── kv_cache.py  # stage 2: decode() hand-written loop, registered as "kv_cache" and "no_cache"
 ├── benchmarks/
 │   ├── run.py                # the one real driver: --stage, --model, --input-len, --output-len, --num-requests, --output-dir
 │   ├── 01_naive_generate/
 │   │   ├── run.py            # thin wrapper: subprocess-invokes benchmarks/run.py with this experiment's fixed args
 │   │   ├── notes.md          # write-up: What changed / Hypothesis / How tests were run / Results / Why / Takeaways / Hardware
-│   │   └── results/          # csv + json outputs, committed
+│   │   └── results/          # requests.csv, summary.json, itl_by_position.csv, committed
+│   ├── 02_kv_cache/          # runs naive, kv_cache, no_cache; results/<stage>/
 │   └── 0N_.../                # one dir per stage, added as each stage lands
 └── tests/
-    └── test_metrics.py       # percentile/aggregation math, CPU-only, no model download
+    ├── conftest.py           # shared fakes (fake_model/tokenizer/stage) + session-scoped tiny-model fixtures
+    ├── unit/                 # fast, CPU-only, no model download
+    └── integration/          # downloads yujiepan/qwen2-tiny-random once; decode-vs-generate() correctness
 ```
 
 **Everything routes through one benchmarking system** — `benchmarks/run.py` plus

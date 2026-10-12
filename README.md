@@ -9,7 +9,8 @@ the same benchmark-driven methodology, applied to autoregressive text generation
 vision models. Hardware limits are treated as part of the experiment rather than something to
 engineer around.
 
-> Work in progress. Stage 1 (baseline) is complete; stage 2 (manual KV cache) is in design.
+> Work in progress. Stage 1 (baseline) is complete; stage 2 (manual KV cache) is implemented and
+> awaiting its benchmark run.
 
 ---
 
@@ -21,7 +22,7 @@ changed, the hypothesis, results, why the numbers look the way they do, and take
 | # | Stage | Hardware | Status |
 |---|-------|----------|--------|
 | 1 | Naive `generate()` baseline | GTX 1060 | Done |
-| 2 | Manual KV cache (hand-written decode loop) | GTX 1060 | In design |
+| 2 | Manual KV cache (hand-written decode loop, with a no-cache control) | GTX 1060 | In progress |
 | 3 | Static batching | GTX 1060 | Planned |
 | 4 | Continuous / in-flight batching | GTX 1060 | Planned |
 | 5 | vLLM (PagedAttention, continuous batching) | Kaggle T4 | Planned |
@@ -58,8 +59,9 @@ Full write-up: [benchmarks/01_naive_generate/notes.md](benchmarks/01_naive_gener
 
 - **One benchmarking path for every stage.** All stages run through `benchmarks/run.py` and
   share the `llm_serving.metrics` schema (per-request latency, TTFT, ITL, throughput), output
-  as CSV, JSON and a console summary. This fixes a problem from the Triton project, which ended
-  up with two benchmarking tools whose results didn't share a schema.
+  as CSV (per request and per decode position), JSON and a console summary. This fixes a problem
+  from the Triton project, which ended up with two benchmarking tools whose results didn't share a
+  schema.
 - **In-process measurement only.** No HTTP layer in any stage. The vLLM leg uses vLLM's offline
   API rather than its OpenAI-compatible server, so network and serialization overhead never
   becomes a confound between stages.
@@ -74,15 +76,19 @@ Full write-up: [benchmarks/01_naive_generate/notes.md](benchmarks/01_naive_gener
 src/llm_serving/
   model.py        model/tokenizer loading, device and dtype selection
   workload.py     synthetic fixed-length prompt generation
-  metrics.py      RequestMetrics, StageSummary, percentiles, CSV/JSON/console output
+  metrics.py      RequestMetrics, StageSummary, per-position ITL, CSV/JSON/console output
   cli.py          benchmark driver arguments
   stages/
     base.py       Stage protocol
     naive.py      stage 1
+    kv_cache.py   stage 2 (kv_cache and no_cache)
 benchmarks/
   run.py                  the single benchmark driver
   01_naive_generate/      run.py (fixed args), notes.md, results/
-tests/                    CPU-only unit tests, no model download
+  02_kv_cache/            run.py (three stages), notes.md, results/<stage>/
+tests/
+  unit/                   CPU-only, no model download
+  integration/            downloads a ~16MB random-weight Qwen2 once, checks decode correctness
 ```
 
 ---
@@ -106,7 +112,8 @@ uv run python benchmarks/run.py --stage naive --model Qwen/Qwen2.5-0.5B-Instruct
 Run the tests:
 
 ```bash
-uv run pytest
+uv run pytest tests/unit         # fast, no download
+uv run pytest tests/integration  # downloads a tiny test model on first run
 ```
 
 `torch` is pinned to PyTorch's CUDA 12.1 wheel index, because the 1060's driver (535) caps
