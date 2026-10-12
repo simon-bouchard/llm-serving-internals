@@ -20,7 +20,7 @@ access to the other two.
 
 - **WSL2 laptop (this session)** — main dev environment. Code, experiment design, and
   analysis happen here. No serious GPU available for the benchmark runs themselves.
-- **RTX 1060 desktop (Pascal, compute capability 6.1)** — booted into Ubuntu by the user
+- **GTX 1060 desktop (Pascal, compute capability 6.1)** — booted into Ubuntu by the user
   for GPU work. No vLLM support on this card. This is where the hand-rolled KV
   cache / batching / continuous-batching implementation gets benchmarked. Claude has no
   remote access to this machine — write self-contained scripts for the user to run there
@@ -29,6 +29,13 @@ access to the other two.
   - When writing the benchmark harness for this leg, hand-implement KV caching and
     batching directly on top of a plain `transformers` forward pass — do not reach for a
     serving framework's built-in implementation for the manual stages.
+  - Driver is 535.309.01, capped at CUDA 12.2. PyPI's default `torch` wheel bundles CUDA 13
+    and fails at import (`RuntimeError: The NVIDIA driver on your system is too old`) —
+    `pyproject.toml` pins `torch` to PyTorch's CUDA 12.1 wheel index
+    (`[tool.uv.sources]`/`[[tool.uv.index]]`, `pytorch-cu121`) instead. Don't drop this pin
+    when touching dependencies; re-verify against `nvidia-smi`'s reported CUDA version
+    before changing it.
+  - Desktop specs: Intel i7-6700 (8 threads) @ 4.00GHz, 15.54GB DDR4 @ 2133 MT/s.
 - **Kaggle T4 (compute capability 7.5, vLLM-capable)** — runs the same model through vLLM
   (PagedAttention, continuous batching) as the comparison leg. Claude has no direct access;
   produce a runnable notebook/script for the user to execute on Kaggle and report results
