@@ -5,6 +5,7 @@ import time
 from dataclasses import replace
 from pathlib import Path
 
+import llm_serving.stages.kv_cache  # noqa: F401 - registers "kv_cache" and "no_cache"
 import llm_serving.stages.naive  # noqa: F401 - registers the "naive" stage
 from llm_serving.metrics import (
     StageSummary,

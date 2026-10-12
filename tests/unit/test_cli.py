@@ -88,3 +88,11 @@ def test_run_benchmark_writes_itl_by_position_csv(
     lines = (tmp_path / "itl_by_position.csv").read_text().splitlines()
     assert lines[0] == "position,itl_p50_ms,itl_mean_ms,n"
     assert len(lines) == 4  # header + positions 1..3
+
+
+def test_arg_parser_accepts_manual_decode_stages():
+    parser = cli.build_arg_parser()
+
+    for stage in ("kv_cache", "no_cache"):
+        args = parser.parse_args(["--stage", stage, "--output-dir", "/tmp/out"])
+        assert args.stage == stage
