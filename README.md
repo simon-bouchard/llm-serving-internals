@@ -100,6 +100,7 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 ```bash
 uv sync
 uv run python benchmarks/01_naive_generate/run.py
+uv run python benchmarks/02_kv_cache/run.py
 ```
 
 Run any stage with custom parameters:

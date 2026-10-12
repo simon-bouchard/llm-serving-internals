@@ -19,8 +19,10 @@ Two measurement fixes landed alongside this stage:
 
 - **Pure greedy stage 1.** `generate()` applies the model's `repetition_penalty` (1.1 for
   Qwen2.5-0.5B-Instruct) even with `do_sample=False`. `naive` now passes `repetition_penalty=1.0`,
-  so all three stages do identical logits work and produce identical tokens (checked by an
-  integration test). Experiment 01 is rerun with this fix as part of this stage.
+  so all three stages do identical logits work. They produce identical tokens on the CPU fp32
+  integration test; `naive` additionally masks EOS (via `min_new_tokens`) while the manual loop
+  does not, which does not affect timing at a fixed output length. The manual loop also passes
+  `logits_to_keep=1` to match `generate()`. Experiment 01 is rerun with this fix as part of this stage.
 - **Explicit GPU sync.** CUDA kernel launches are asynchronous, so the manual loop calls
   `torch.cuda.synchronize()` before every timestamp; otherwise it would time when work was queued,
   not when it finished. `generate()` already syncs every step through its stopping-criteria check.
@@ -33,7 +35,9 @@ every stage, since the no-cache effect is in the shape of ITL over a request, no
 1. **`kv_cache` ≈ `naive`** within a few percent on throughput and ITL. Same mechanism and the same
    logits work; any gap reflects `generate()`'s remaining per-step bookkeeping (logits-processor
    list, stopping-criteria checks, streamer calls) vs. the bare loop.
-2. **TTFT is the same across all three stages**: each does one identical 128-token prefill pass.
+2. **TTFT is the same across all three stages**: each does one identical 128-token prefill pass. `naive`
+   TTFT also includes `generate()`'s per-call setup (config validation, logits-processor list,
+   cache construction), so a small TTFT gap to its disfavor is expected.
 3. **`no_cache` ITL climbs with position**, starting near the 128-token prefill cost (~55ms in
    experiment 01) rather than ~25ms, because every step is effectively a fresh prefill over
    128 + k tokens. The climb is likely sublinear at first: a 0.5B model at these sequence lengths is
