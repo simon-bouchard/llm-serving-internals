@@ -20,7 +20,8 @@ def decode(
     """Greedy-decode output_len tokens with a hand-written loop.
 
     With use_cache, each step feeds only the new token plus the HF cache object; without it,
-    each step re-feeds the full sequence. Returns (tokens, start, per-token timestamps).
+    each step re-feeds the full sequence. Every call passes logits_to_keep=1, as generate() does,
+    so lm_head runs on the last position only. Returns (tokens, start, per-token timestamps).
     """
     if output_len < 1:
         raise ValueError(f"output_len must be >= 1, got {output_len}")
@@ -30,7 +31,7 @@ def decode(
     start = time.perf_counter()
 
     with torch.no_grad():
-        outputs = model(input_ids, use_cache=use_cache)
+        outputs = model(input_ids, use_cache=use_cache, logits_to_keep=1)
         next_token = outputs.logits[:, -1, :].argmax(dim=-1, keepdim=True)
         _sync(device)
         timestamps = [time.perf_counter()]
@@ -41,10 +42,10 @@ def decode(
 
         for _ in range(output_len - 1):
             if use_cache:
-                outputs = model(next_token, past_key_values=cache, use_cache=True)
+                outputs = model(next_token, past_key_values=cache, use_cache=True, logits_to_keep=1)
                 cache = outputs.past_key_values
             else:
-                outputs = model(sequence, use_cache=False)
+                outputs = model(sequence, use_cache=False, logits_to_keep=1)
             next_token = outputs.logits[:, -1, :].argmax(dim=-1, keepdim=True)
             _sync(device)
             timestamps.append(time.perf_counter())

@@ -73,6 +73,8 @@ def decode(
     `use_cache=False`, so every step recomputes attention over the full sequence.
 - Both branches share the same loop, argmax, and timing code, so the cache is the only
   variable between the two stages.
+- Every `model()` call passes `logits_to_keep=1`, matching `generate()`, so `lm_head` runs on
+  the last position only.
 - Wrapped in `torch.no_grad()`.
 - Returns the generated token ids (shape `[1, output_len]`) so the correctness test can call
   it directly. `RequestMetrics` does not carry tokens, and the `Stage` protocol is unchanged.

@@ -16,13 +16,17 @@ class FakeCausalLM:
 
     def __init__(self) -> None:
         self.calls: list[tuple[tuple[int, ...], bool, bool]] = []
+        self.logits_to_keep_calls: list[int] = []
 
-    def __call__(self, input_ids, past_key_values=None, use_cache=False):
+    def __call__(self, input_ids, past_key_values=None, use_cache=False, logits_to_keep=0):
         self.calls.append((tuple(input_ids.shape), past_key_values is not None, use_cache))
+        self.logits_to_keep_calls.append(logits_to_keep)
         batch, seq = input_ids.shape
         logits = torch.zeros(batch, seq, self.vocab_size)
         next_ids = (input_ids[:, -1] + 1) % self.vocab_size
         logits[torch.arange(batch), -1, next_ids] = 1.0
+        if logits_to_keep:
+            logits = logits[:, -logits_to_keep:, :]
         return SimpleNamespace(logits=logits, past_key_values=object() if use_cache else None)
 
 
@@ -47,6 +51,16 @@ def test_decode_without_cache_refeeds_the_full_sequence():
     assert tokens.tolist() == [[6, 7, 8, 9]]
     assert [shape for shape, _, _ in model.calls] == [(1, 3), (1, 4), (1, 5), (1, 6)]
     assert all(not has_cache and not use for _, has_cache, use in model.calls)
+
+
+@pytest.mark.parametrize("use_cache", [True, False])
+def test_decode_requests_last_position_logits_only(use_cache):
+    model = FakeCausalLM()
+
+    tokens, _, _ = decode(model, PROMPT, output_len=4, use_cache=use_cache)
+
+    assert tokens.tolist() == [[6, 7, 8, 9]]
+    assert model.logits_to_keep_calls == [1, 1, 1, 1]
 
 
 def test_decode_returns_one_ordered_timestamp_per_token():
