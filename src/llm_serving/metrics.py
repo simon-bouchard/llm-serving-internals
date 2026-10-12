@@ -51,6 +51,19 @@ class StageSummary:
     timestamp: str
 
 
+@dataclass
+class PositionITL:
+    """ITL at one decode position, aggregated across requests.
+
+    position k is the gap between output token k and k+1 (1-based).
+    """
+
+    position: int
+    itl_p50_ms: float
+    itl_mean_ms: float
+    n: int
+
+
 def summarize(
     requests: list[RequestMetrics],
     *,
@@ -99,7 +112,39 @@ def summarize(
     )
 
 
-def print_table(summary: StageSummary) -> None:
+def itl_by_position(requests: list[RequestMetrics]) -> list[PositionITL]:
+    """Aggregate ITL per decode position; NaN padding keeps ragged lengths from skewing it."""
+    lengths = [len(r.inter_token_latencies_s) for r in requests]
+    max_len = max(lengths, default=0)
+    if max_len == 0:
+        return []
+
+    itls_ms = np.full((len(requests), max_len), np.nan)
+    for row, (request, length) in enumerate(zip(requests, lengths)):
+        itls_ms[row, :length] = np.asarray(request.inter_token_latencies_s) * 1000
+
+    p50 = np.nanmedian(itls_ms, axis=0)
+    mean = np.nanmean(itls_ms, axis=0)
+    counts = np.sum(~np.isnan(itls_ms), axis=0)
+
+    return [
+        PositionITL(
+            position=k + 1,
+            itl_p50_ms=round(float(p50[k]), 3),
+            itl_mean_ms=round(float(mean[k]), 3),
+            n=int(counts[k]),
+        )
+        for k in range(max_len)
+    ]
+
+
+def display_positions(output_len: int) -> list[int]:
+    """Positions shown in the console ITL row: first, quarter, half, last."""
+    candidates = [1, output_len // 4, output_len // 2, output_len - 1]
+    return sorted({p for p in candidates if 1 <= p <= output_len - 1})
+
+
+def print_table(summary: StageSummary, position_itls: list[PositionITL]) -> None:
     print(f"\nStage:    {summary.stage}")
     print(f"Model:    {summary.model}")
     print(f"Device:   {summary.device} ({summary.dtype})")
@@ -123,6 +168,14 @@ def print_table(summary: StageSummary) -> None:
 
     print(f"\n{'ITL (ms)':<14}{'p50':>10}{'mean':>10}")
     print(f"{'':<14}{summary.itl_p50_ms:>10.2f}{summary.itl_mean_ms:>10.2f}")
+
+    by_position = {row.position: row for row in position_itls}
+    positions = [p for p in display_positions(summary.output_len) if p in by_position]
+    if positions:
+        headers = "".join(f"{p:>10}" for p in positions)
+        values = "".join(f"{by_position[p].itl_p50_ms:>10.2f}" for p in positions)
+        print(f"\n{'ITL by pos':<14}{headers}")
+        print(f"{'(p50 ms)':<14}{values}")
 
     print(
         f"\nThroughput: {summary.request_throughput:.2f} req/s, "
@@ -158,6 +211,14 @@ def write_requests_csv(requests: list[RequestMetrics], path: Path) -> None:
                     mean_itl,
                 ]
             )
+
+
+def write_itl_by_position_csv(rows: list[PositionITL], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["position", "itl_p50_ms", "itl_mean_ms", "n"])
+        writer.writerows([r.position, r.itl_p50_ms, r.itl_mean_ms, r.n] for r in rows)
 
 
 def write_summary_json(summary: StageSummary, path: Path) -> None:

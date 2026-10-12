@@ -62,3 +62,29 @@ def test_run_benchmark_assigns_sequential_request_ids(
 
     summary = cli.run_benchmark(args)
     assert summary.num_requests == 3
+
+
+def test_run_benchmark_writes_itl_by_position_csv(
+    monkeypatch, tmp_path: Path, fake_model, fake_tokenizer, fake_stage
+):
+    STAGES["fake_cli_stage_3"] = fake_stage
+    monkeypatch.setattr(
+        cli, "load_model_and_tokenizer", lambda model_name: (fake_model, fake_tokenizer)
+    )
+
+    parser = cli.build_arg_parser()
+    args = parser.parse_args(
+        [
+            "--stage", "fake_cli_stage_3",
+            "--output-dir", str(tmp_path),
+            "--output-len", "4",
+            "--num-requests", "2",
+            "--num-warmup", "0",
+        ]
+    )
+
+    cli.run_benchmark(args)
+
+    lines = (tmp_path / "itl_by_position.csv").read_text().splitlines()
+    assert lines[0] == "position,itl_p50_ms,itl_mean_ms,n"
+    assert len(lines) == 4  # header + positions 1..3

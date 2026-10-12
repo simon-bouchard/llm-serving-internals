@@ -8,8 +8,10 @@ from pathlib import Path
 import llm_serving.stages.naive  # noqa: F401 - registers the "naive" stage
 from llm_serving.metrics import (
     StageSummary,
+    itl_by_position,
     print_table,
     summarize,
+    write_itl_by_position_csv,
     write_requests_csv,
     write_summary_json,
 )
@@ -61,9 +63,12 @@ def run_benchmark(args: argparse.Namespace) -> StageSummary:
         wall_clock_s=wall_clock_s,
     )
 
-    print_table(summary)
+    position_itls = itl_by_position(requests)
+
+    print_table(summary, position_itls)
     write_requests_csv(requests, args.output_dir / "requests.csv")
     write_summary_json(summary, args.output_dir / "summary.json")
+    write_itl_by_position_csv(position_itls, args.output_dir / "itl_by_position.csv")
 
     return summary
 
