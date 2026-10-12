@@ -31,6 +31,31 @@ class TimestampStreamer(BaseStreamer):
         pass
 
 
+def greedy_generate(
+    model,
+    tokenizer,
+    input_ids: torch.Tensor,
+    output_len: int,
+    streamer: BaseStreamer | None = None,
+) -> torch.Tensor:
+    """Pure greedy generate(), returning only the newly generated token ids.
+
+    repetition_penalty is forced to 1.0 because generate() applies the model's
+    generation_config penalty even with do_sample=False.
+    """
+    with torch.no_grad():
+        output = model.generate(
+            input_ids,
+            min_new_tokens=output_len,
+            max_new_tokens=output_len,
+            do_sample=False,
+            repetition_penalty=1.0,
+            streamer=streamer,
+            pad_token_id=tokenizer.pad_token_id,
+        )
+    return output[:, input_ids.shape[-1] :]
+
+
 class NaiveStage:
     def generate_one(
         self, model, tokenizer, input_ids: torch.Tensor, output_len: int
@@ -40,15 +65,7 @@ class NaiveStage:
         prompt_tokens = input_ids.shape[-1]
 
         start = time.perf_counter()
-        with torch.no_grad():
-            model.generate(
-                input_ids,
-                min_new_tokens=output_len,
-                max_new_tokens=output_len,
-                do_sample=False,
-                streamer=streamer,
-                pad_token_id=tokenizer.pad_token_id,
-            )
+        greedy_generate(model, tokenizer, input_ids, output_len, streamer=streamer)
 
         timestamps = streamer.timestamps
         ttft_s = timestamps[0] - start
