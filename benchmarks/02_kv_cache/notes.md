@@ -20,7 +20,7 @@ Two measurement fixes landed alongside this stage:
 - **Pure greedy stage 1.** `generate()` applies the model's `repetition_penalty` (1.1 for
   Qwen2.5-0.5B-Instruct) even with `do_sample=False`. `naive` now passes `repetition_penalty=1.0`,
   so all three stages do identical logits work and produce identical tokens (checked by an
-  integration test). Experiment 01 was rerun with this fix.
+  integration test). Experiment 01 is rerun with this fix as part of this stage.
 - **Explicit GPU sync.** CUDA kernel launches are asynchronous, so the manual loop calls
   `torch.cuda.synchronize()` before every timestamp; otherwise it would time when work was queued,
   not when it finished. `generate()` already syncs every step through its stopping-criteria check.
